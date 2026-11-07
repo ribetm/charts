@@ -92,6 +92,10 @@ Create the name of the service account to use
 {{- end }}
 
 {{- define "dawarich.volumes" -}}
+- name: tmp
+  emptyDir: {}
+- name: rails-tmp
+  emptyDir: {}
 {{- if .Values.persistence.public.enabled }}
 - name: public
   persistentVolumeClaim:
@@ -111,11 +115,15 @@ Create the name of the service account to use
     claimName: {{ default (printf "%s-storage" (include "dawarich.fullname" .)) .Values.persistence.storage.existingClaim }}
 {{- end }}
 {{- if .Values.dawarich.extraVolumes }}
-{{ toYaml .Values.dawarich.extraVolumes | indent 2 }}
+{{ toYaml .Values.dawarich.extraVolumes }}
 {{- end }}
 {{- end }}
 
 {{- define "dawarich.volumeMounts" -}}
+- name: tmp
+  mountPath: /tmp
+- name: rails-tmp
+  mountPath: /var/app/tmp
 {{- if .Values.persistence.public.enabled }}
 - name: public
   mountPath: /var/app/public
@@ -127,11 +135,15 @@ Create the name of the service account to use
   mountPath: /var/app/storage
 {{- end }}
 {{- if .Values.dawarich.extraVolumeMounts }}
-{{ toYaml .Values.dawarich.extraVolumeMounts | indent 2 }}
+{{ toYaml .Values.dawarich.extraVolumeMounts }}
 {{- end }}
 {{- end }}
 
 {{- define "dawarich.sidekiqVolumeMounts" -}}
+- name: tmp
+  mountPath: /tmp
+- name: rails-tmp
+  mountPath: /var/app/tmp
 {{- if .Values.persistence.public.enabled }}
 - name: public
   mountPath: /var/app/public
@@ -156,6 +168,8 @@ Create the name of the service account to use
 {{- end }}
 
 {{- define "dawarich.env" -}}
+- name: TMPDIR
+  value: /tmp/ruby
 {{/* SELF_HOSTED is required in Dawarich >=0.25.4 */}}
 - name: SELF_HOSTED
   value: "true"
@@ -282,6 +296,14 @@ Create the name of the service account to use
 {{- end }}
 
 {{- define "dawarich.initContainers" }}
+- name: tmpdir
+  image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
+  command: [sh, -c, "install -d -m 0700 /tmp/ruby"]
+  securityContext:
+    {{- toYaml .Values.securityContext | nindent 12 }}
+  volumeMounts:
+    - name: tmp
+      mountPath: /tmp
 - name: wait-for-postgres
   image: busybox
   env:
